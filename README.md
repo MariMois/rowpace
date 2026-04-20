@@ -2,7 +2,7 @@
 
 A lightweight, mobile-first rowing metronome and training companion designed to help rowers maintain consistent stroke rates and master rate-change progressions.
 
-[**Live Demo**](https://marimois.github.io/row-pace/)
+[**Live Demo**](https://marimois.github.io/rowpace/)
 
 ## ✨ Features
 
