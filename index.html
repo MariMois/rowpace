@@ -6,65 +6,30 @@
     <title>RowPace</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&family=JetBrains+Mono:wght@700&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&family=JetBrains+Mono:wght@400;700&display=swap');
         
-        :root {
-            --slate-950: #020617;
-        }
-
+        :root { --slate-950: #020617; }
         body { 
             font-family: 'Inter', sans-serif; 
             background-color: var(--slate-950); 
-            margin: 0; 
-            padding: 0; 
+            margin: 0; padding: 0; 
             -webkit-font-smoothing: antialiased;
             overscroll-behavior-y: contain;
+            color: #f1f5f9;
         }
-
         .font-mono { font-family: 'JetBrains Mono', monospace; }
-
-        html, body, #root { 
-            height: 100%; 
-            width: 100%; 
-            overflow: hidden; 
-            position: fixed; 
-        }
-
+        html, body, #root { height: 100%; width: 100%; overflow: hidden; position: fixed; }
         #root { display: flex; flex-direction: column; }
-
-        .scroll-container { 
-            flex: 1; 
-            overflow-y: auto; 
-            -webkit-overflow-scrolling: touch; 
-        }
-
+        .scroll-container { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; }
         .picker-btn { -webkit-tap-highlight-color: transparent; }
-
-        .overlay { 
-            position: fixed; 
-            inset: 0; 
-            display: flex; 
-            flex-direction: column; 
-            align-items: center; 
-            justify-content: center; 
-            z-index: 9999;
-            background: var(--slate-950);
-        }
-
-        .error-overlay { background: #7f1d1d; color: white; padding: 20px; font-family: monospace; }
-        
-        .progress-transition {
-            transition: width 0.5s linear, background-color 0.3s ease;
-        }
+        .overlay { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; z-index: 9999; background: var(--slate-950); }
+        .progress-transition { transition: width 0.5s linear; }
     </style>
 </head>
-<body class="text-slate-100">
+<body>
     <div id="root">
         <div class="overlay">
-            <div class="text-blue-500 animate-spin mb-4">
-                <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-6.219-8.56"></path></svg>
-            </div>
-            <div class="text-slate-500 font-bold tracking-widest text-xs uppercase">Initializing RowPace...</div>
+            <div class="text-blue-500 animate-spin mb-4 font-mono">LOADING...</div>
         </div>
     </div>
 
@@ -76,17 +41,6 @@
     <script type="text/babel">
         const { useState, useEffect, useRef, useCallback } = React;
 
-        window.onerror = function(message, source, lineno, colno, error) {
-            const root = document.getElementById('root');
-            if (root) {
-                root.innerHTML = `<div class="overlay error-overlay text-center">
-                    <h1 class="text-xl font-bold mb-2">Application Error</h1>
-                    <p class="mb-4 text-sm">${message}</p>
-                    <button onclick="location.reload()" class="mt-6 bg-white text-black px-6 py-2 rounded-full font-bold uppercase text-xs tracking-widest">Reload App</button>
-                </div>`;
-            }
-        };
-
         const Icon = ({ name, className = "", size = 24 }) => {
             const ref = useRef(null);
             useEffect(() => {
@@ -96,10 +50,7 @@
                     const i = document.createElement('i');
                     i.setAttribute('data-lucide', lucideName);
                     ref.current.appendChild(i);
-                    window.lucide.createIcons({
-                        elements: [i],
-                        attrs: { width: size, height: size, 'stroke-width': 2 }
-                    });
+                    window.lucide.createIcons({ elements: [i], attrs: { width: size, height: size, 'stroke-width': 2 } });
                 }
             }, [name, size]);
             return <span ref={ref} className={`inline-flex items-center justify-center ${className}`} style={{ width: size, height: size }} />;
@@ -123,38 +74,19 @@
             const [showHistory, setShowHistory] = useState(false);
             const [history, setHistory] = useState([]);
             const [isMuted, setIsMuted] = useState(false);
+            const [strokePhase, setStrokePhase] = useState(0);
 
-            const requestRef = useRef();
-            const lastTimeRef = useRef();
             const audioCtxRef = useRef(null);
-            const lastSplitRef = useRef(0);
-            const phaseRef = useRef('WARMUP');
-            const [strokePhase, setStrokePhase] = useState(0); 
-
-            const rpmStep = 2; 
-
-            const handleRpmChange = (type, delta) => {
-                let newStart = startRpm;
-                let newMax = maxRpm;
-                if (type === 'start') {
-                    newStart = Math.max(10, startRpm + delta);
-                    newMax = Math.max(newMax, newStart);
-                } else {
-                    newMax = Math.max(startRpm, maxRpm + delta);
-                }
-                setStartRpm(newStart);
-                setMaxRpm(newMax);
-                const cycles = Math.max(1, Math.ceil((newMax - newStart) / rpmStep) + 1);
-                setTotalMinutes(cycles * splitMinutes * 2);
-            };
+            const lastTimeRef = useRef();
+            const requestRef = useRef();
+            const lastSplitRef = useRef(-1);
+            const phaseRef = useRef('');
+            const rpmStep = 2;
 
             const playTone = (freq, duration, volume = 0.1, type = 'sine') => {
                 if (isMuted) return;
                 try {
-                    const AudioContextClass = window.AudioContext || window.webkitAudioContext;
-                    if (!audioCtxRef.current && AudioContextClass) audioCtxRef.current = new AudioContextClass();
-                    const ctx = audioCtxRef.current;
-                    if (!ctx) return;
+                    const ctx = audioCtxRef.current || (audioCtxRef.current = new (window.AudioContext || window.webkitAudioContext)());
                     if (ctx.state === 'suspended') ctx.resume();
                     const osc = ctx.createOscillator();
                     const gain = ctx.createGain();
@@ -162,16 +94,18 @@
                     osc.frequency.setValueAtTime(freq, ctx.currentTime);
                     gain.gain.setValueAtTime(volume, ctx.currentTime);
                     gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + duration);
-                    osc.connect(gain);
-                    gain.connect(ctx.destination);
-                    osc.start();
-                    osc.stop(ctx.currentTime + duration);
+                    osc.connect(gain); gain.connect(ctx.destination);
+                    osc.start(); osc.stop(ctx.currentTime + duration);
                 } catch(e) {}
             };
 
-            const soundCatch = () => playTone(800, 0.1, 0.2, 'square'); 
+            const soundCatch = () => playTone(800, 0.1, 0.2, 'square');
             const soundPush = () => { playTone(500, 0.2); setTimeout(() => playTone(700, 0.2), 100); };
-            const soundEnd = () => [440, 554, 659, 880].forEach((f, i) => setTimeout(() => playTone(f, 0.6, 0.1, 'triangle'), i * 150));
+
+            const handleRpmChange = (type, delta) => {
+                if (type === 'start') setStartRpm(s => Math.max(10, s + delta));
+                else setMaxRpm(m => Math.max(startRpm, m + delta));
+            };
 
             const warmupSeconds = warmupMinutes * 60;
             const mainSeconds = totalMinutes * 60;
@@ -179,69 +113,33 @@
             const absoluteTotalSeconds = warmupSeconds + mainSeconds + cooldownSeconds;
             const splitSeconds = splitMinutes * 60;
 
-            const calculateRpmForSplit = (splitIdx) => {
-                const pairIdx = Math.floor(splitIdx / 2);
-                return Math.min(startRpm + (pairIdx * rpmStep), maxRpm);
-            };
-
             let currentPhase = 'MAIN';
             let displayRpm = startRpm;
             let splitLabel = '';
-            let splitColorClass = 'bg-blue-600';
+            let splitColor = 'bg-blue-600';
             let splitTimeLeft = 0;
             let activeSplitIndex = 0;
 
             if (currentTime < warmupSeconds && warmupSeconds > 0) {
-                currentPhase = 'WARMUP';
-                displayRpm = warmupRpm;
-                splitLabel = 'Warmup';
-                splitColorClass = 'bg-emerald-600';
-                splitTimeLeft = warmupSeconds - currentTime;
+                currentPhase = 'WARMUP'; displayRpm = warmupRpm; splitLabel = 'WARMUP'; splitColor = 'bg-emerald-600'; splitTimeLeft = warmupSeconds - currentTime;
             } else if (currentTime < warmupSeconds + mainSeconds) {
-                currentPhase = 'MAIN';
                 const mainTime = currentTime - warmupSeconds;
                 activeSplitIndex = Math.floor(mainTime / splitSeconds);
-                displayRpm = calculateRpmForSplit(activeSplitIndex);
-                const isHard = activeSplitIndex % 2 !== 0;
-                splitLabel = isHard ? 'Hard Drive' : 'Low Steady';
-                splitColorClass = isHard ? 'bg-orange-600' : 'bg-blue-600';
+                displayRpm = Math.min(startRpm + (Math.floor(activeSplitIndex / 2) * rpmStep), maxRpm);
+                splitLabel = activeSplitIndex % 2 !== 0 ? 'HARD DRIVE' : 'LOW STEADY';
+                splitColor = activeSplitIndex % 2 !== 0 ? 'bg-orange-600' : 'bg-blue-600';
                 splitTimeLeft = splitSeconds - (mainTime % splitSeconds);
             } else {
-                currentPhase = 'COOLDOWN';
-                displayRpm = cooldownRpm;
-                splitLabel = 'Cooldown';
-                splitColorClass = 'bg-teal-600';
-                splitTimeLeft = absoluteTotalSeconds - currentTime;
+                currentPhase = 'COOLDOWN'; displayRpm = cooldownRpm; splitLabel = 'COOLDOWN'; splitColor = 'bg-teal-600'; splitTimeLeft = absoluteTotalSeconds - currentTime;
             }
 
             const strokeDuration = 60 / displayRpm;
-            const timeToMax = (Math.max(1, Math.ceil((maxRpm - startRpm) / rpmStep) + 1)) * splitMinutes * 2;
-
-            const saveSession = useCallback(() => {
-                soundEnd();
-                const newEntry = { 
-                    id: Date.now(), 
-                    date: new Date().toLocaleDateString(), 
-                    duration: Math.round(absoluteTotalSeconds / 60), 
-                    range: `${startRpm}-${maxRpm}` 
-                };
-                const updated = [newEntry, ...history].slice(0, 50);
-                setHistory(updated);
-                localStorage.setItem('rowpace_history', JSON.stringify(updated));
-            }, [history, absoluteTotalSeconds, startRpm, maxRpm]);
-
-            useEffect(() => {
-                if (isRunning && currentTime > 0 && currentTime >= absoluteTotalSeconds) {
-                    setIsRunning(false);
-                    setCurrentTime(absoluteTotalSeconds);
-                    saveSession();
-                }
-            }, [currentTime, isRunning, absoluteTotalSeconds, saveSession]);
+            const timeToMax = (Math.ceil((maxRpm - startRpm) / rpmStep) + 1) * splitMinutes * 2;
 
             const animate = useCallback((time) => {
                 if (lastTimeRef.current !== undefined) {
                     const deltaTime = (time - lastTimeRef.current) / 1000;
-                    setCurrentTime(prev => prev + deltaTime);
+                    setCurrentTime(prev => Math.min(prev + deltaTime, absoluteTotalSeconds));
                     setStrokePhase(prev => {
                         const next = (prev + (deltaTime / strokeDuration)) % 1;
                         if (next < prev) soundCatch();
@@ -250,211 +148,145 @@
                 }
                 lastTimeRef.current = time;
                 requestRef.current = requestAnimationFrame(animate);
-            }, [strokeDuration]);
+            }, [strokeDuration, absoluteTotalSeconds]);
 
             useEffect(() => {
-                if (isRunning && !isCountingDown) {
-                    requestRef.current = requestAnimationFrame(animate);
-                } else { 
-                    cancelAnimationFrame(requestRef.current); 
-                    lastTimeRef.current = undefined; 
-                }
+                if (isRunning && !isCountingDown) requestRef.current = requestAnimationFrame(animate);
+                else { cancelAnimationFrame(requestRef.current); lastTimeRef.current = undefined; }
                 return () => cancelAnimationFrame(requestRef.current);
             }, [isRunning, isCountingDown, animate]);
 
             useEffect(() => {
-                if (isRunning) {
-                    if (currentPhase !== phaseRef.current) {
-                        soundPush();
-                        phaseRef.current = currentPhase;
-                    } else if (currentPhase === 'MAIN' && activeSplitIndex !== lastSplitRef.current) {
-                        soundPush();
-                        lastSplitRef.current = activeSplitIndex;
-                    }
-                }
-            }, [currentPhase, activeSplitIndex, isRunning]);
-
-            useEffect(() => {
-                const saved = localStorage.getItem('rowpace_history');
-                if (saved) setHistory(JSON.parse(saved));
-            }, []);
-
-            useEffect(() => {
-                let t;
-                if (isCountingDown && countdown > 0) {
-                    if (countdown <= 5) playTone(440, 0.1);
-                    t = setInterval(() => setCountdown(c => c - 1), 1000);
-                } else if (isCountingDown && countdown === 0) { 
-                    soundCatch(); 
-                    setIsCountingDown(false); 
-                    setIsRunning(true); 
-                }
-                return () => clearInterval(t);
-            }, [isCountingDown, countdown]);
-
-            const toggleStart = () => {
-                if (isRunning || isCountingDown) { setIsRunning(false); setIsCountingDown(false); }
-                else { 
-                    if (currentTime === 0 || currentTime >= absoluteTotalSeconds) { 
-                        setCurrentTime(0);
-                        setCountdown(10); 
-                        setIsCountingDown(true); 
-                        setShowSettings(false); 
-                        setShowHistory(false); 
-                    } else { 
-                        setIsRunning(true); 
-                        setShowSettings(false); 
-                    } 
-                }
-            };
-
-            const formatTime = (s) => `${Math.floor(s / 60)}:${Math.floor(s % 60).toString().padStart(2, '0')}`;
-            const getPosition = (p) => p < 0.33 ? (p / 0.33) * 100 : 100 - ((p - 0.33) / 0.67) * 100;
+                if (isRunning && currentPhase !== phaseRef.current) { soundPush(); phaseRef.current = currentPhase; }
+            }, [currentPhase, isRunning]);
 
             const Picker = ({ label, value, onDown, onUp, unit = "" }) => (
-                <div className="space-y-1">
-                    <label className="text-[10px] md:text-xs font-bold text-slate-500 uppercase tracking-wider">{label}</label>
-                    <div className="flex items-center justify-between bg-slate-900 rounded-2xl">
-                        <button onClick={onDown} className="p-3 md:p-4 hover:bg-slate-800 rounded-l-2xl transition-colors picker-btn"><Icon name="ChevronDown" /></button>
-                        <span className="text-xl md:text-2xl font-mono">{value}{unit}</span>
-                        <button onClick={onUp} className="p-3 md:p-4 hover:bg-slate-800 rounded-r-2xl transition-colors picker-btn"><Icon name="ChevronUp" /></button>
+                <div className="flex-1 space-y-2">
+                    <label className="text-[10px] font-bold text-emerald-500 uppercase tracking-widest">{label}</label>
+                    <div className="flex items-center justify-between bg-slate-900/50 rounded-xl border border-slate-800 p-1">
+                        <button onClick={onDown} className="p-3 hover:bg-slate-800 rounded-lg transition-colors"><Icon name="ChevronDown" size={20}/></button>
+                        <span className="text-xl font-mono font-bold">{value}{unit}</span>
+                        <button onClick={onUp} className="p-3 hover:bg-slate-800 rounded-lg transition-colors"><Icon name="ChevronUp" size={20}/></button>
                     </div>
                 </div>
             );
 
             return (
                 <div className="flex flex-col h-full w-full bg-slate-950 overflow-hidden">
-                    <header className="p-4 md:p-6 flex justify-between items-center border-b border-slate-800 bg-slate-900/50 backdrop-blur-md z-30 shrink-0">
-                        <div className="flex items-center gap-2"><Icon name="Activity" className="text-blue-500" /><h1 className="text-xl md:text-2xl font-bold">RowPace</h1></div>
-                        <div className="flex gap-2">
-                            <button onClick={() => setIsMuted(!isMuted)} className="p-2 md:p-3 hover:bg-slate-800 rounded-xl transition-colors">{isMuted ? <Icon name="VolumeX" className="text-red-500" /> : <Icon name="Volume2" />}</button>
-                            <button onClick={() => {setShowHistory(!showHistory); setShowSettings(false);}} className="p-2 md:p-3 hover:bg-slate-800 rounded-xl transition-colors"><Icon name="History" /></button>
-                            <button onClick={() => {setShowSettings(!showSettings); setShowHistory(false);}} className="p-2 md:p-3 hover:bg-slate-800 rounded-xl transition-colors"><Icon name="Settings" /></button>
+                    <header className="p-4 flex justify-between items-center border-b border-slate-800 bg-slate-900/20 z-30">
+                        <div className="flex items-center gap-3"><Icon name="Activity" className="text-blue-500" size={28}/><h1 className="text-2xl font-black tracking-tight">RowPace</h1></div>
+                        <div className="flex gap-1">
+                            <button onClick={() => setIsMuted(!isMuted)} className="p-2 hover:bg-slate-800 rounded-lg">{isMuted ? <Icon name="VolumeX" className="text-red-500"/> : <Icon name="Volume2"/>}</button>
+                            <button onClick={() => {setShowHistory(!showHistory); setShowSettings(false);}} className="p-2 hover:bg-slate-800 rounded-lg"><Icon name="History"/></button>
+                            <button onClick={() => {setShowSettings(!showSettings); setShowHistory(false);}} className="p-2 hover:bg-slate-800 rounded-lg"><Icon name="Settings"/></button>
                         </div>
                     </header>
 
-                    <div className="scroll-container relative">
+                    <div className="scroll-container relative flex flex-col">
                         {isCountingDown && (
                             <div className="fixed inset-0 z-50 bg-blue-600 flex flex-col items-center justify-center">
-                                <div className="text-lg md:text-2xl uppercase tracking-widest font-black mb-4">Get Ready</div>
-                                <div className="text-[40vmin] font-mono font-black leading-none">{countdown}</div>
+                                <div className="text-xl uppercase tracking-[0.3em] font-bold mb-4 opacity-80">GET READY</div>
+                                <div className="text-[45vmin] font-mono font-bold leading-none">{countdown}</div>
                             </div>
                         )}
 
                         {showSettings && (
-                            <div className="min-h-full bg-slate-950 p-4 md:p-8 pb-40">
-                                <div className="max-w-2xl mx-auto space-y-6 md:space-y-8">
-                                    <h2 className="text-2xl md:text-4xl font-bold text-center">Session Setup</h2>
-                                    <div className="space-y-4">
-                                        <div className="text-sm font-bold text-emerald-500 uppercase tracking-widest border-b border-slate-800 pb-2">1. Warmup</div>
-                                        <div className="grid grid-cols-2 gap-4">
-                                            <Picker label="Minutes" value={warmupMinutes} onDown={() => setWarmupMinutes(w => Math.max(0, w - 1))} onUp={() => setWarmupMinutes(w => w + 1)} unit="m" />
-                                            <Picker label="Target RPM" value={warmupRpm} onDown={() => setWarmupRpm(w => Math.max(10, w - 1))} onUp={() => setWarmupRpm(w => w + 1)} />
-                                        </div>
+                            <div className="p-6 space-y-8 max-w-lg mx-auto w-full pb-40">
+                                <h2 className="text-4xl font-black text-center mt-4">Session Setup</h2>
+                                
+                                <div className="space-y-4">
+                                    <h3 className="text-xs font-black text-emerald-500 tracking-[0.2em] uppercase border-b border-slate-800 pb-2">1. Warmup (Optional)</h3>
+                                    <div className="flex gap-4">
+                                        <Picker label="TIME" value={warmupMinutes} onDown={()=>setWarmupMinutes(m=>Math.max(0,m-1))} onUp={()=>setWarmupMinutes(m=>m+1)} unit="m"/>
+                                        <Picker label="TARGET RPM" value={warmupRpm} onDown={()=>setWarmupRpm(r=>Math.max(10,r-1))} onUp={()=>setWarmupRpm(r=>r+1)}/>
                                     </div>
-                                    <div className="space-y-4">
-                                        <div className="text-sm font-bold text-blue-500 uppercase tracking-widest border-b border-slate-800 pb-2">2. Main Workout</div>
-                                        <div className="grid grid-cols-2 gap-4">
-                                            <Picker label="Start RPM" value={startRpm} onDown={() => handleRpmChange('start', -2)} onUp={() => handleRpmChange('start', 2)} />
-                                            <Picker label="Max RPM" value={maxRpm} onDown={() => handleRpmChange('max', -2)} onUp={() => handleRpmChange('max', 2)} />
-                                        </div>
-                                        <Picker label="Duration" value={totalMinutes} onDown={() => setTotalMinutes(t => Math.max(2, t - 1))} onUp={() => setTotalMinutes(t => t + 1)} unit="m" />
-                                        <div className="p-4 bg-blue-500/10 border border-blue-500/20 rounded-2xl text-center">
-                                            <div className="flex items-center justify-center gap-2 text-blue-400 font-bold text-xs uppercase mb-2"><Icon name="TrendingUp" size={16} /> Progression</div>
-                                            <div className="text-xs text-slate-300">RPM increases by <span className="text-white font-mono font-bold">+{rpmStep}</span> every {splitMinutes * 2} minutes.</div>
-                                            <div className={`text-[10px] md:text-xs mt-2 font-bold ${totalMinutes < timeToMax ? 'text-orange-400' : 'text-blue-400'}`}>
-                                                {totalMinutes < timeToMax ? `Ends at ${Math.min(maxRpm, startRpm + (Math.floor((Math.max(1, totalMinutes) - 1) / (splitMinutes * 2)) * rpmStep))} RPM.` : totalMinutes === timeToMax ? `Ends exactly at ${maxRpm} RPM.` : `Reaches ${maxRpm} at ${timeToMax}m and holds.`}
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <div className="space-y-4">
-                                        <div className="text-sm font-bold text-teal-500 uppercase tracking-widest border-b border-slate-800 pb-2">3. Cooldown</div>
-                                        <div className="grid grid-cols-2 gap-4">
-                                            <Picker label="Minutes" value={cooldownMinutes} onDown={() => setCooldownMinutes(c => Math.max(0, c - 1))} onUp={() => setCooldownMinutes(c => c + 1)} unit="m" />
-                                            <Picker label="Target RPM" value={cooldownRpm} onDown={() => setCooldownRpm(c => Math.max(10, c - 1))} onUp={() => setCooldownRpm(c => c + 1)} />
-                                        </div>
-                                    </div>
-                                    <button onClick={toggleStart} className="w-full max-w-sm mx-auto block bg-blue-600 hover:bg-blue-500 py-5 rounded-2xl font-black text-xl uppercase tracking-widest">Start Workout</button>
                                 </div>
-                            </div>
-                        )}
 
-                        {showHistory && (
-                            <div className="absolute inset-0 z-30 bg-slate-950 p-4 md:p-8 overflow-y-auto pb-40">
-                                <h2 className="text-2xl md:text-4xl font-bold mb-8 text-center">Session History</h2>
-                                <div className="max-w-md mx-auto space-y-4">
-                                    {history.length === 0 ? <div className="text-slate-500 text-center py-20 italic">No records found</div> : history.map(item => (
-                                        <div key={item.id} className="bg-slate-900 p-5 rounded-2xl flex justify-between items-center border border-slate-800">
-                                            <div><div className="font-bold text-sm">{item.date}</div><div className="text-xs text-blue-400 uppercase">{item.range} RPM</div></div>
-                                            <div className="text-3xl font-mono font-bold text-slate-300">{item.duration}m</div>
-                                        </div>
-                                    ))}
+                                <div className="space-y-4">
+                                    <h3 className="text-xs font-black text-blue-500 tracking-[0.2em] uppercase border-b border-slate-800 pb-2">2. Main Workout</h3>
+                                    <div className="flex gap-4">
+                                        <Picker label="START RPM" value={startRpm} onDown={()=>handleRpmChange('start',-2)} onUp={()=>handleRpmChange('start',2)}/>
+                                        <Picker label="MAX RPM" value={maxRpm} onDown={()=>handleRpmChange('max',-2)} onUp={()=>handleRpmChange('max',2)}/>
+                                    </div>
+                                    <Picker label="MAIN DURATION" value={totalMinutes} onDown={()=>setTotalMinutes(m=>Math.max(2,m-1))} onUp={()=>setTotalMinutes(m=>m+1)} unit="m"/>
+                                    <div className="bg-blue-500/5 border border-blue-500/20 p-4 rounded-xl text-center">
+                                        <div className="text-[10px] font-bold text-blue-400 uppercase tracking-[0.1em] mb-1">Progression Details</div>
+                                        <div className="text-xs text-slate-400 font-medium">Main RPM increases by <span className="text-white">+2</span> every 2 minutes.</div>
+                                        <div className="text-[10px] text-blue-500 font-bold mt-2 italic uppercase">Reaches {maxRpm} RPM at {timeToMax}m and holds.</div>
+                                    </div>
                                 </div>
+
+                                <div className="space-y-4">
+                                    <h3 className="text-xs font-black text-teal-500 tracking-[0.2em] uppercase border-b border-slate-800 pb-2">3. Cooldown (Optional)</h3>
+                                    <div className="flex gap-4">
+                                        <Picker label="TIME" value={cooldownMinutes} onDown={()=>setCooldownMinutes(m=>Math.max(0,m-1))} onUp={()=>setCooldownMinutes(m=>m+1)} unit="m"/>
+                                        <Picker label="TARGET RPM" value={cooldownRpm} onDown={()=>setCooldownRpm(r=>Math.max(10,r-1))} onUp={()=>setCooldownRpm(r=>r+1)}/>
+                                    </div>
+                                </div>
+
+                                <div className="text-center font-mono text-sm font-bold text-slate-500">Total Session: {warmupMinutes+totalMinutes+cooldownMinutes}m</div>
+                                <button onClick={toggleStart} className="w-full bg-blue-600 hover:bg-blue-500 py-6 rounded-2xl font-black text-xl uppercase tracking-[0.1em] shadow-xl shadow-blue-900/20 transition-all">Start Workout</button>
                             </div>
                         )}
 
                         {!showSettings && !showHistory && (
-                            <div className="min-h-full flex flex-col items-center justify-center p-6 md:p-12 space-y-8 md:space-y-12 max-w-4xl mx-auto pb-40">
-                                <div className="w-full h-16 md:h-24 bg-slate-900 rounded-full relative overflow-hidden border border-slate-800 shrink-0">
-                                   <div className="absolute right-10 top-0 bottom-0 w-1 bg-slate-800" />
-                                   <div className={`absolute top-1/2 -translate-y-1/2 h-12 w-12 rounded-2xl flex items-center justify-center transition-colors ${strokePhase < 0.33 ? 'bg-white' : splitColorClass}`}
-                                        style={{ left: `calc(${getPosition(strokePhase)}% - 3rem * ${getPosition(strokePhase) / 100})` }}>
-                                     <div className={`w-3 h-3 rounded-full ${strokePhase < 0.33 ? 'bg-slate-950' : 'bg-white'}`} />
+                            <div className="flex-1 flex flex-col items-center justify-center p-6 space-y-12">
+                                <div className="w-full max-w-md h-20 bg-slate-900/50 rounded-full relative overflow-hidden border border-slate-800/50">
+                                   <div className="absolute left-6 top-1/2 -translate-y-1/2 text-[10px] font-black text-slate-600 uppercase tracking-widest">CATCH</div>
+                                   <div className="absolute right-6 top-1/2 -translate-y-1/2 text-[10px] font-black text-slate-600 uppercase tracking-widest rotate-90">FINISH</div>
+                                   <div className={`absolute top-1/2 -translate-y-1/2 h-10 w-10 rounded-xl flex items-center justify-center shadow-2xl transition-colors ${strokePhase < 0.33 ? 'bg-white' : splitColor}`}
+                                        style={{ left: `calc(${strokePhase < 0.33 ? (strokePhase/0.33)*100 : 100-((strokePhase-0.33)/0.67)*100}% - 20px)` }}>
+                                     <div className={`w-2 h-2 rounded-full ${strokePhase < 0.33 ? 'bg-slate-950' : 'bg-white'}`} />
                                    </div>
                                 </div>
 
-                                <div className="w-full space-y-2">
-                                    <div className="flex justify-between text-[10px] font-bold text-slate-600 uppercase tracking-widest"><span>Session Progress</span><span>{Math.round((currentTime / absoluteTotalSeconds) * 100)}%</span></div>
-                                    <div className="w-full h-2 bg-slate-900 rounded-full overflow-hidden">
-                                        <div className={`h-full ${splitColorClass} progress-transition`} style={{ width: `${(currentTime / absoluteTotalSeconds) * 100}%` }} />
+                                <div className="text-center">
+                                    <div className="text-[35vmin] font-mono font-bold leading-none tracking-tighter">{displayRpm}</div>
+                                    <div className="text-xs font-bold text-slate-500 uppercase tracking-[0.2em] mt-2">Target Strokes Per Minute</div>
+                                    <div className={`mt-8 inline-block px-10 py-3 rounded-full text-sm font-black uppercase tracking-[0.2em] ${splitColor} text-white shadow-lg`}>{splitLabel}</div>
+                                    <div className="text-[10px] font-bold text-slate-600 uppercase tracking-widest mt-6 italic">Preparing for {startRpm} RPM</div>
+                                </div>
+
+                                <div className="w-full max-w-md grid grid-cols-2 gap-4">
+                                    <div className="bg-slate-900/40 p-6 rounded-2xl border border-slate-800 text-center">
+                                        <div className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2">Total Remaining</div>
+                                        <div className="text-4xl font-mono font-bold text-blue-400 leading-none">{formatTime(absoluteTotalSeconds - currentTime)}</div>
+                                    </div>
+                                    <div className="bg-slate-900/40 p-6 rounded-2xl border border-slate-800 text-center">
+                                        <div className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2">Phase Time</div>
+                                        <div className="text-4xl font-mono font-bold leading-none">{formatTime(splitTimeLeft)}</div>
                                     </div>
                                 </div>
 
-                                <div className="text-center w-full">
-                                    <div className="text-[25vmin] md:text-[20vmin] font-black font-mono leading-none">{displayRpm}</div>
-                                    <div className={`mt-6 md:mt-10 inline-block px-8 md:px-12 py-3 rounded-full text-sm md:text-lg font-black uppercase tracking-widest ${splitColorClass} text-white`}>{splitLabel}</div>
-                                </div>
-
-                                <div className="w-full grid grid-cols-2 gap-4">
-                                    <div className="bg-slate-900/50 p-6 rounded-2xl text-center border border-slate-800">
-                                        <div className="text-slate-500 text-[10px] uppercase font-bold mb-2 tracking-widest">Remaining</div>
-                                        <div className="text-3xl md:text-6xl font-mono font-bold text-blue-400">{formatTime(Math.max(0, absoluteTotalSeconds - currentTime))}</div>
-                                    </div>
-                                    <div className="bg-slate-900/50 p-6 rounded-2xl text-center border border-slate-800">
-                                        <div className="text-slate-500 text-[10px] uppercase font-bold mb-2 tracking-widest">Split Time</div>
-                                        <div className="text-3xl md:text-6xl font-mono font-bold">{formatTime(Math.max(0, splitTimeLeft))}</div>
+                                <div className="w-full max-w-md space-y-2 px-2">
+                                    <div className="flex justify-between text-[10px] font-black text-slate-600 uppercase tracking-widest"><span>START</span><span>FINISH</span></div>
+                                    <div className="w-full h-1 bg-slate-900 rounded-full relative overflow-hidden">
+                                        <div className={`h-full ${splitColor} progress-transition`} style={{ width: `${(currentTime/absoluteTotalSeconds)*100}%` }} />
                                     </div>
                                 </div>
                             </div>
                         )}
                     </div>
 
-                    {!showSettings && !showHistory && (
-                        <footer className="p-6 pb-12 flex justify-center items-center gap-8 md:gap-16 bg-slate-950 border-t border-slate-800 fixed bottom-0 w-full z-40 shrink-0">
-                            <button onClick={() => { setCurrentTime(0); setStrokePhase(0); }} className="p-4 bg-slate-900 hover:bg-slate-800 transition-colors rounded-2xl"><Icon name="RotateCcw" className="text-slate-500" /></button>
-                            <button onClick={toggleStart} className={`w-20 h-20 rounded-full flex items-center justify-center shadow-2xl ${isRunning ? 'bg-white text-slate-900' : 'bg-blue-600 text-white'}`}>
-                                {isRunning ? <Icon name="Pause" size={32} /> : <Icon name="Play" size={32} className="ml-1" />}
-                            </button>
-                            <button onClick={() => setShowSettings(true)} className="p-4 bg-slate-900 hover:bg-slate-800 transition-colors rounded-2xl"><Icon name="Clock" className="text-slate-500" /></button>
-                        </footer>
-                    )}
+                    <footer className="p-8 pb-12 flex justify-center items-center gap-10 bg-slate-950/80 backdrop-blur-md border-t border-slate-900 z-40 shrink-0">
+                        <button onClick={() => setCurrentTime(0)} className="w-16 h-16 bg-slate-900 rounded-full flex items-center justify-center hover:bg-slate-800 transition-colors"><Icon name="RotateCcw" className="text-slate-500"/></button>
+                        <button onClick={toggleStart} className={`w-24 h-24 rounded-full flex items-center justify-center shadow-2xl transition-all ${isRunning ? 'bg-white text-slate-950' : 'bg-blue-600 text-white'}`}>
+                            {isRunning ? <Icon name="Pause" size={40}/> : <Icon name="Play" size={40} className="ml-1"/>}
+                        </button>
+                        <button onClick={() => setShowSettings(true)} className="w-16 h-16 bg-slate-900 rounded-full flex items-center justify-center hover:bg-slate-800 transition-colors"><Icon name="Clock" className="text-slate-500"/></button>
+                    </footer>
 
-                    <div className="fixed bottom-6 right-6 z-50">
-                        <a href="https://ko-fi.com/G2G41N6HQ1" target="_blank" className="bg-slate-900/90 backdrop-blur border border-slate-800 text-slate-400 p-3 rounded-full shadow-2xl transition-all flex items-center justify-center" title="Buy me a Coffee">
-                            <Icon name="Coffee" size={20} />
-                        </a>
-                    </div>
+                    <a href="https://ko-fi.com/G2G41N6HQ1" target="_blank" className="fixed bottom-6 right-6 z-50 bg-slate-900/90 border border-slate-800 p-3 rounded-full shadow-2xl hover:scale-110 transition-transform">
+                        <Icon name="Coffee" size={20} className="text-slate-400"/>
+                    </a>
                 </div>
             );
         };
 
         function initApp() {
             if (typeof React !== 'undefined' && typeof ReactDOM !== 'undefined' && typeof Babel !== 'undefined') {
-                const root = ReactDOM.createRoot(document.getElementById('root'));
-                root.render(<App />);
-            } else {
-                setTimeout(initApp, 100);
-            }
+                ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+            } else setTimeout(initApp, 100);
         }
         window.onload = initApp;
     </script>
