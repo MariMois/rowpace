@@ -54,7 +54,7 @@
         .error-overlay { background: #7f1d1d; color: white; padding: 20px; font-family: monospace; }
         
         .progress-transition {
-            transition: width 1s linear, background-color 0.3s ease;
+            transition: width 0.5s linear, background-color 0.3s ease;
         }
     </style>
 </head>
@@ -76,14 +76,12 @@
     <script type="text/babel">
         const { useState, useEffect, useRef, useCallback } = React;
 
-        // Global Error Handler
         window.onerror = function(message, source, lineno, colno, error) {
             const root = document.getElementById('root');
             if (root) {
                 root.innerHTML = `<div class="overlay error-overlay text-center">
                     <h1 class="text-xl font-bold mb-2">Application Error</h1>
                     <p class="mb-4 text-sm">${message}</p>
-                    <div class="text-[10px] opacity-70">${source}:${lineno}</div>
                     <button onclick="location.reload()" class="mt-6 bg-white text-black px-6 py-2 rounded-full font-bold uppercase text-xs tracking-widest">Reload App</button>
                 </div>`;
             }
@@ -128,7 +126,6 @@
 
             const requestRef = useRef();
             const lastTimeRef = useRef();
-            const wakeLockRef = useRef(null);
             const audioCtxRef = useRef(null);
             const lastSplitRef = useRef(0);
             const phaseRef = useRef('WARMUP');
@@ -189,7 +186,6 @@
 
             let currentPhase = 'MAIN';
             let displayRpm = startRpm;
-            let nextDisplayRpm = startRpm;
             let splitLabel = '';
             let splitColorClass = 'bg-blue-600';
             let splitTimeLeft = 0;
@@ -198,7 +194,6 @@
             if (currentTime < warmupSeconds && warmupSeconds > 0) {
                 currentPhase = 'WARMUP';
                 displayRpm = warmupRpm;
-                nextDisplayRpm = startRpm;
                 splitLabel = 'Warmup';
                 splitColorClass = 'bg-emerald-600';
                 splitTimeLeft = warmupSeconds - currentTime;
@@ -207,8 +202,6 @@
                 const mainTime = currentTime - warmupSeconds;
                 activeSplitIndex = Math.floor(mainTime / splitSeconds);
                 displayRpm = calculateRpmForSplit(activeSplitIndex);
-                const isLastMainSplit = mainTime >= mainSeconds - splitSeconds;
-                nextDisplayRpm = isLastMainSplit ? (cooldownMinutes > 0 ? cooldownRpm : displayRpm) : calculateRpmForSplit(activeSplitIndex + 1);
                 const isHard = activeSplitIndex % 2 !== 0;
                 splitLabel = isHard ? 'Hard Drive' : 'Low Steady';
                 splitColorClass = isHard ? 'bg-orange-600' : 'bg-blue-600';
@@ -216,7 +209,6 @@
             } else {
                 currentPhase = 'COOLDOWN';
                 displayRpm = cooldownRpm;
-                nextDisplayRpm = cooldownRpm;
                 splitLabel = 'Cooldown';
                 splitColorClass = 'bg-teal-600';
                 splitTimeLeft = absoluteTotalSeconds - currentTime;
@@ -269,16 +261,6 @@
                 }
                 return () => cancelAnimationFrame(requestRef.current);
             }, [isRunning, isCountingDown, animate]);
-
-            useEffect(() => {
-                const getWL = async () => { 
-                    if ((isRunning || isCountingDown) && navigator.wakeLock) {
-                        try { wakeLockRef.current = await navigator.wakeLock.request('screen'); } catch (err) {}
-                    }
-                };
-                const relWL = () => { if (wakeLockRef.current) { wakeLockRef.current.release(); wakeLockRef.current = null; } };
-                getWL(); return () => relWL();
-            }, [isRunning, isCountingDown]);
 
             useEffect(() => {
                 if (isRunning) {
@@ -412,7 +394,7 @@
                         )}
 
                         {!showSettings && !showHistory && (
-                            <div className="min-h-full flex flex-col items-center justify-center p-6 md:p-12 space-y-8 md:space-y-16 max-w-4xl mx-auto pb-40">
+                            <div className="min-h-full flex flex-col items-center justify-center p-6 md:p-12 space-y-8 md:space-y-12 max-w-4xl mx-auto pb-40">
                                 <div className="w-full h-16 md:h-24 bg-slate-900 rounded-full relative overflow-hidden border border-slate-800 shrink-0">
                                    <div className="absolute right-10 top-0 bottom-0 w-1 bg-slate-800" />
                                    <div className={`absolute top-1/2 -translate-y-1/2 h-12 w-12 rounded-2xl flex items-center justify-center transition-colors ${strokePhase < 0.33 ? 'bg-white' : splitColorClass}`}
@@ -420,10 +402,19 @@
                                      <div className={`w-3 h-3 rounded-full ${strokePhase < 0.33 ? 'bg-slate-950' : 'bg-white'}`} />
                                    </div>
                                 </div>
+
+                                <div className="w-full space-y-2">
+                                    <div className="flex justify-between text-[10px] font-bold text-slate-600 uppercase tracking-widest"><span>Session Progress</span><span>{Math.round((currentTime / absoluteTotalSeconds) * 100)}%</span></div>
+                                    <div className="w-full h-2 bg-slate-900 rounded-full overflow-hidden">
+                                        <div className={`h-full ${splitColorClass} progress-transition`} style={{ width: `${(currentTime / absoluteTotalSeconds) * 100}%` }} />
+                                    </div>
+                                </div>
+
                                 <div className="text-center w-full">
                                     <div className="text-[25vmin] md:text-[20vmin] font-black font-mono leading-none">{displayRpm}</div>
                                     <div className={`mt-6 md:mt-10 inline-block px-8 md:px-12 py-3 rounded-full text-sm md:text-lg font-black uppercase tracking-widest ${splitColorClass} text-white`}>{splitLabel}</div>
                                 </div>
+
                                 <div className="w-full grid grid-cols-2 gap-4">
                                     <div className="bg-slate-900/50 p-6 rounded-2xl text-center border border-slate-800">
                                         <div className="text-slate-500 text-[10px] uppercase font-bold mb-2 tracking-widest">Remaining</div>
@@ -448,9 +439,11 @@
                         </footer>
                     )}
 
-                    <a href="https://ko-fi.com/G2G41N6HQ1" target="_blank" className="fixed bottom-6 right-6 z-50 bg-slate-900/90 backdrop-blur border border-slate-800 text-slate-400 p-3 rounded-full shadow-2xl transition-all" title="Buy me a Coffee">
-                        <Icon name="Coffee" size={20} />
-                    </a>
+                    <div className="fixed bottom-6 right-6 z-50">
+                        <a href="https://ko-fi.com/G2G41N6HQ1" target="_blank" className="bg-slate-900/90 backdrop-blur border border-slate-800 text-slate-400 p-3 rounded-full shadow-2xl transition-all flex items-center justify-center" title="Buy me a Coffee">
+                            <Icon name="Coffee" size={20} />
+                        </a>
+                    </div>
                 </div>
             );
         };
