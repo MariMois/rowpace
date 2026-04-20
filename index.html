@@ -35,6 +35,15 @@
         .picker-btn { -webkit-tap-highlight-color: transparent; }
         #loading-screen { position: fixed; inset: 0; background: var(--slate-950); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 9999; }
         .progress-transition { transition: width 1s linear; }
+        
+        /* Ensures the workout dash fits on tall screens like S25 Ultra */
+        .workout-dash {
+            display: flex;
+            flex-direction: column;
+            justify-content: space-evenly;
+            height: 100%;
+            padding-bottom: 2rem;
+        }
     </style>
 </head>
 <body>
@@ -202,7 +211,6 @@
                 return () => cancelAnimationFrame(requestRef.current);
             }, [isRunning, isCountingDown, animate]);
 
-            // Wake Lock restored
             useEffect(() => {
                 const getWL = async () => {
                     if ((isRunning || isCountingDown) && "wakeLock" in navigator) {
@@ -252,7 +260,7 @@
             const getPosition = (p) => p < 0.33 ? (p / 0.33) * 100 : 100 - ((p - 0.33) / 0.67) * 100;
 
             const Picker = ({ label, value, onDown, onUp, unit = "" }) => (
-                <div className="space-y-1 md:space-y-2">
+                <div className="space-y-1">
                     <label className="text-[10px] md:text-xs font-bold text-slate-500 uppercase tracking-wider">{label}</label>
                     <div className="flex items-center justify-between bg-slate-900 rounded-2xl border border-slate-800">
                         <button onClick={onDown} className="p-3 md:p-4 hover:bg-slate-800 rounded-l-2xl transition-colors"><Icon name="ChevronDown" /></button>
@@ -273,7 +281,7 @@
                         </div>
                     </header>
 
-                    <div className="scroll-container relative flex flex-col">
+                    <div className="flex-1 relative overflow-hidden flex flex-col">
                         {isCountingDown && (
                             <div className="fixed inset-0 z-50 bg-blue-600 flex flex-col items-center justify-center">
                                 <div className="text-lg md:text-2xl uppercase tracking-widest font-black mb-4 opacity-80">Get Ready</div>
@@ -282,85 +290,96 @@
                         )}
 
                         {showSettings && (
-                            <div className="p-6 md:p-8 space-y-8 max-w-2xl mx-auto w-full pb-40">
-                                <h2 className="text-3xl md:text-5xl font-black text-center mt-4">Session Setup</h2>
-                                <div className="space-y-4">
-                                    <div className="text-[10px] md:text-xs font-black text-emerald-500 tracking-[0.2em] uppercase border-b border-slate-800 pb-2">1. Warmup (Optional)</div>
-                                    <div className="grid grid-cols-2 gap-4">
-                                        <Picker label="Time" value={warmupMinutes} onDown={() => setWarmupMinutes(m => Math.max(0, m - 1))} onUp={() => setWarmupMinutes(m => m + 1)} unit="m" />
-                                        <Picker label="Target RPM" value={warmupRpm} onDown={() => setWarmupRpm(r => Math.max(10, r - 1))} onUp={() => setWarmupRpm(r => r + 1)} />
-                                    </div>
-                                </div>
-                                <div className="space-y-4">
-                                    <div className="text-[10px] md:text-xs font-black text-blue-500 tracking-[0.2em] uppercase border-b border-slate-800 pb-2">2. Main Workout</div>
-                                    <div className="grid grid-cols-2 gap-4">
-                                        <Picker label="Start RPM" value={startRpm} onDown={() => handleRpmChange("start", -2)} onUp={() => handleRpmChange("start", 2)} />
-                                        <Picker label="Max RPM" value={maxRpm} onDown={() => handleRpmChange("max", -2)} onUp={() => handleRpmChange("max", 2)} />
-                                    </div>
-                                    <Picker label="Main Duration" value={totalMinutes} onDown={() => setTotalMinutes(m => Math.max(2, m - 1))} onUp={() => setTotalMinutes(m => m + 1)} unit="m" />
-                                    <div className="p-5 bg-blue-500/5 border border-blue-500/20 rounded-2xl text-center">
-                                        <div className="flex items-center justify-center gap-2 text-blue-400 font-bold text-[10px] md:text-xs uppercase mb-2 tracking-widest"><Icon name="TrendingUp" size={16} /> Progression Details</div>
-                                        <div className="text-xs text-slate-300">RPM increases by <span className="text-white font-bold">+{rpmStep}</span> every 2 minutes.</div>
-                                        <div className={`text-[10px] md:text-xs mt-2 font-bold ${totalMinutes < timeToMax ? "text-orange-400" : "text-blue-400"}`}>
-                                            {totalMinutes < timeToMax ? `Ends early at ${Math.min(maxRpm, startRpm + Math.floor((Math.max(1, totalMinutes) - 1) / (splitMinutes * 2)) * rpmStep)} RPM.` : totalMinutes === timeToMax ? `Perfect fit: Ends exactly at ${maxRpm} RPM.` : `Reaches ${maxRpm} at ${timeToMax}m and holds.`}
+                            <div className="scroll-container">
+                                <div className="p-6 md:p-8 space-y-6 max-w-2xl mx-auto w-full pb-40">
+                                    <h2 className="text-3xl md:text-5xl font-black text-center mt-4">Session Setup</h2>
+                                    <div className="space-y-4">
+                                        <div className="text-[10px] md:text-xs font-black text-emerald-500 tracking-[0.2em] uppercase border-b border-slate-800 pb-2">1. Warmup (Optional)</div>
+                                        <div className="grid grid-cols-2 gap-4">
+                                            <Picker label="Time" value={warmupMinutes} onDown={() => setWarmupMinutes(m => Math.max(0, m - 1))} onUp={() => setWarmupMinutes(m => m + 1)} unit="m" />
+                                            <Picker label="Target RPM" value={warmupRpm} onDown={() => setWarmupRpm(r => Math.max(10, r - 1))} onUp={() => setWarmupRpm(r => r + 1)} />
                                         </div>
                                     </div>
-                                </div>
-                                <div className="space-y-4">
-                                    <div className="text-[10px] md:text-xs font-black text-teal-500 tracking-[0.2em] uppercase border-b border-slate-800 pb-2">3. Cooldown (Optional)</div>
-                                    <div className="grid grid-cols-2 gap-4">
-                                        <Picker label="Time" value={cooldownMinutes} onDown={() => setCooldownMinutes(m => Math.max(0, m - 1))} onUp={() => setCooldownMinutes(m => m + 1)} unit="m" />
-                                        <Picker label="Target RPM" value={cooldownRpm} onDown={() => setCooldownRpm(r => Math.max(10, r - 1))} onUp={() => setCooldownRpm(r => r + 1)} />
+                                    <div className="space-y-4">
+                                        <div className="text-[10px] md:text-xs font-black text-blue-500 tracking-[0.2em] uppercase border-b border-slate-800 pb-2">2. Main Workout</div>
+                                        <div className="grid grid-cols-2 gap-4">
+                                            <Picker label="Start RPM" value={startRpm} onDown={() => handleRpmChange("start", -2)} onUp={() => handleRpmChange("start", 2)} />
+                                            <Picker label="Max RPM" value={maxRpm} onDown={() => handleRpmChange("max", -2)} onUp={() => handleRpmChange("max", 2)} />
+                                        </div>
+                                        <Picker label="Main Duration" value={totalMinutes} onDown={() => setTotalMinutes(m => Math.max(2, m - 1))} onUp={() => setTotalMinutes(m => m + 1)} unit="m" />
+                                        <div className="p-4 bg-blue-500/5 border border-blue-500/20 rounded-2xl text-center">
+                                            <div className="flex items-center justify-center gap-2 text-blue-400 font-bold text-[10px] md:text-xs uppercase mb-2 tracking-widest"><Icon name="TrendingUp" size={16} /> Progression Details</div>
+                                            <div className="text-xs text-slate-300">RPM increases by <span className="text-white font-bold">+{rpmStep}</span> every 2 minutes.</div>
+                                            <div className={`text-[10px] md:text-xs mt-2 font-bold ${totalMinutes < timeToMax ? "text-orange-400" : "text-blue-400"}`}>
+                                                {totalMinutes < timeToMax ? `Ends early at ${Math.min(maxRpm, startRpm + Math.floor((Math.max(1, totalMinutes) - 1) / (splitMinutes * 2)) * rpmStep)} RPM.` : totalMinutes === timeToMax ? `Perfect fit: Ends exactly at ${maxRpm} RPM.` : `Reaches ${maxRpm} at ${timeToMax}m and holds.`}
+                                            </div>
+                                        </div>
                                     </div>
+                                    <div className="space-y-4">
+                                        <div className="text-[10px] md:text-xs font-black text-teal-500 tracking-[0.2em] uppercase border-b border-slate-800 pb-2">3. Cooldown (Optional)</div>
+                                        <div className="grid grid-cols-2 gap-4">
+                                            <Picker label="Time" value={cooldownMinutes} onDown={() => setCooldownMinutes(m => Math.max(0, m - 1))} onUp={() => setCooldownMinutes(m => m + 1)} unit="m" />
+                                            <Picker label="Target RPM" value={cooldownRpm} onDown={() => setCooldownRpm(r => Math.max(10, r - 1))} onUp={() => setCooldownRpm(r => r + 1)} />
+                                        </div>
+                                    </div>
+                                    <div className="text-center font-mono text-sm font-bold text-slate-500">Total Session: {warmupMinutes + totalMinutes + cooldownMinutes}m</div>
+                                    <button onClick={toggleStart} className="w-full bg-blue-600 hover:bg-blue-500 py-6 rounded-2xl font-black text-xl uppercase tracking-widest shadow-xl shadow-blue-900/20 transition-all">Start Workout</button>
                                 </div>
-                                <div className="text-center font-mono text-sm font-bold text-slate-500">Total Session: {warmupMinutes + totalMinutes + cooldownMinutes}m</div>
-                                <button onClick={toggleStart} className="w-full bg-blue-600 hover:bg-blue-500 py-6 rounded-2xl font-black text-xl uppercase tracking-widest shadow-xl shadow-blue-900/20 transition-all">Start Workout</button>
                             </div>
                         )}
 
                         {showHistory && (
-                            <div className="p-8 max-w-2xl mx-auto w-full pb-40">
-                                <h2 className="text-3xl md:text-5xl font-black mb-10 text-center">History</h2>
-                                <div className="space-y-4">
-                                    {history.length === 0 ? <div className="text-slate-500 text-center py-20 italic">No records found</div> : history.map((item) => (
-                                        <div key={item.id} className="bg-slate-900/50 p-6 rounded-2xl flex justify-between items-center border border-slate-800 shadow-lg">
-                                            <div><div className="font-bold text-lg">{item.date}</div><div className="text-sm text-blue-400 font-bold uppercase tracking-wider">{item.range} RPM</div></div>
-                                            <div className="text-3xl font-mono font-bold text-slate-300">{item.duration}m</div>
-                                        </div>
-                                    ))}
+                            <div className="scroll-container">
+                                <div className="p-8 max-w-2xl mx-auto w-full pb-40">
+                                    <h2 className="text-3xl md:text-5xl font-black mb-10 text-center">History</h2>
+                                    <div className="space-y-4">
+                                        {history.length === 0 ? <div className="text-slate-500 text-center py-20 italic">No records found</div> : history.map((item) => (
+                                            <div key={item.id} className="bg-slate-900/50 p-6 rounded-2xl flex justify-between items-center border border-slate-800 shadow-lg">
+                                                <div><div className="font-bold text-lg">{item.date}</div><div className="text-sm text-blue-400 font-bold uppercase tracking-wider">{item.range} RPM</div></div>
+                                                <div className="text-3xl font-mono font-bold text-slate-300">{item.duration}m</div>
+                                            </div>
+                                        ))}
+                                    </div>
                                 </div>
                             </div>
                         )}
 
                         {!showSettings && !showHistory && (
-                            <div className="flex-1 flex flex-col items-center justify-center p-6 space-y-12">
-                                <div className="w-full max-w-md h-20 bg-slate-900/40 rounded-full relative overflow-hidden border border-slate-800/50 shrink-0 shadow-inner">
-                                   <div className="absolute left-6 top-1/2 -translate-y-1/2 text-[10px] font-black text-slate-600 uppercase tracking-[0.2em]">CATCH</div>
-                                   <div className="absolute right-6 top-1/2 -translate-y-1/2 text-[10px] font-black text-slate-600 uppercase tracking-[0.2em] rotate-90">FINISH</div>
-                                   <div className={`absolute top-1/2 -translate-y-1/2 h-12 w-12 rounded-2xl flex items-center justify-center shadow-2xl transition-colors ${strokePhase < 0.33 ? 'bg-white shadow-white/40' : splitColorClass}`}
+                            <div className="workout-dash p-6">
+                                {/* Boat Slider */}
+                                <div className="w-full max-w-md mx-auto h-16 md:h-20 bg-slate-900/40 rounded-full relative overflow-hidden border border-slate-800/50 shrink-0 shadow-inner">
+                                   <div className="absolute left-6 top-1/2 -translate-y-1/2 text-[8px] md:text-[10px] font-black text-slate-600 uppercase tracking-[0.2em]">CATCH</div>
+                                   <div className="absolute right-6 top-1/2 -translate-y-1/2 text-[8px] md:text-[10px] font-black text-slate-600 uppercase tracking-[0.2em] rotate-90">FINISH</div>
+                                   <div className={`absolute top-1/2 -translate-y-1/2 h-10 w-10 md:h-12 md:w-12 rounded-2xl flex items-center justify-center shadow-2xl transition-colors ${strokePhase < 0.33 ? 'bg-white shadow-white/40' : splitColorClass}`}
                                         style={{ left: `calc(${getPosition(strokePhase)}% - 3rem * ${getPosition(strokePhase) / 100})` }}>
-                                     <div className={`w-3 h-3 rounded-full ${strokePhase < 0.33 ? 'bg-slate-950' : 'bg-white'}`} />
+                                     <div className={`w-2 h-2 md:w-3 md:h-3 rounded-full ${strokePhase < 0.33 ? 'bg-slate-950' : 'bg-white'}`} />
                                    </div>
                                 </div>
+
+                                {/* RPM Display - Scaled to Viewport Height */}
                                 <div className="text-center">
-                                    <div className="text-[35vmin] font-mono font-bold leading-none tracking-tighter">{displayRpm}</div>
-                                    <div className="text-xs font-bold text-slate-500 uppercase tracking-[0.3em] mt-2">Target Strokes Per Minute</div>
-                                    <div className={`mt-8 inline-block px-10 py-3 rounded-full text-sm font-black uppercase tracking-widest ${splitColorClass} text-white shadow-lg`}>{splitLabel}</div>
-                                    <div className="text-[10px] font-bold text-slate-600 uppercase mt-6 italic opacity-50">Preparing for {nextDisplayRpm} RPM</div>
+                                    <div className="text-[25vh] md:text-[20vmin] font-mono font-bold leading-none tracking-tighter">{displayRpm}</div>
+                                    <div className="text-[10px] md:text-sm font-bold text-slate-500 uppercase tracking-[0.3em] mt-2">Target Strokes Per Minute</div>
+                                    <div className={`mt-4 md:mt-8 inline-block px-8 py-2 md:px-10 md:py-3 rounded-full text-xs md:text-sm font-black uppercase tracking-widest ${splitColorClass} text-white shadow-lg`}>{splitLabel}</div>
+                                    <div className="text-[8px] md:text-[10px] font-bold text-slate-600 uppercase mt-4 italic opacity-50 tracking-widest">Preparing for {nextDisplayRpm} RPM</div>
                                 </div>
-                                <div className="w-full max-w-md grid grid-cols-2 gap-4">
-                                    <div className="bg-slate-900/30 p-6 rounded-3xl border border-slate-800/50 text-center">
-                                        <div className="text-slate-500 text-[10px] uppercase font-bold mb-2 tracking-widest">Remaining</div>
-                                        <div className="text-4xl md:text-6xl font-mono font-bold text-blue-400">{formatTime(absoluteTotalSeconds - currentTime)}</div>
+
+                                {/* Stats Grid - More Compact */}
+                                <div className="w-full max-w-md mx-auto grid grid-cols-2 gap-3 md:gap-4">
+                                    <div className="bg-slate-900/30 p-4 md:p-6 rounded-3xl border border-slate-800/50 text-center">
+                                        <div className="text-slate-500 text-[8px] md:text-[10px] uppercase font-bold mb-1 tracking-widest">Remaining</div>
+                                        <div className="text-3xl md:text-5xl font-mono font-bold text-blue-400">{formatTime(absoluteTotalSeconds - currentTime)}</div>
                                     </div>
-                                    <div className="bg-slate-900/30 p-6 rounded-3xl border border-slate-800/50 text-center">
-                                        <div className="text-slate-500 text-[10px] uppercase font-bold mb-2 tracking-widest">Split Time</div>
-                                        <div className="text-4xl md:text-6xl font-mono font-bold">{formatTime(splitTimeLeft)}</div>
+                                    <div className="bg-slate-900/30 p-4 md:p-6 rounded-3xl border border-slate-800/50 text-center">
+                                        <div className="text-slate-500 text-[8px] md:text-[10px] uppercase font-bold mb-1 tracking-widest">Split Time</div>
+                                        <div className="text-3xl md:text-5xl font-mono font-bold">{formatTime(splitTimeLeft)}</div>
                                     </div>
                                 </div>
-                                <div className="w-full max-w-md px-2 space-y-3">
-                                    <div className="flex justify-between text-[10px] font-black text-slate-700 uppercase tracking-[0.2em]"><span>START</span><span>{Math.round((currentTime / absoluteTotalSeconds) * 100)}%</span><span>FINISH</span></div>
-                                    <div className="w-full h-2 bg-slate-900 rounded-full relative overflow-hidden">
+
+                                {/* Session Progress Bar */}
+                                <div className="w-full max-w-md mx-auto px-2 space-y-2">
+                                    <div className="flex justify-between text-[8px] md:text-[10px] font-black text-slate-700 uppercase tracking-[0.2em]"><span>START</span><span>{Math.round((currentTime / absoluteTotalSeconds) * 100)}%</span><span>FINISH</span></div>
+                                    <div className="w-full h-1 bg-slate-900 rounded-full relative overflow-hidden">
                                         <div className={`absolute inset-y-0 left-0 ${splitColorClass} transition-all duration-500`} style={{ width: `${(currentTime / absoluteTotalSeconds) * 100}%` }} />
                                     </div>
                                 </div>
@@ -369,17 +388,18 @@
                     </div>
 
                     {!showSettings && !showHistory && (
-                        <footer className="p-8 pb-12 flex justify-center items-center gap-10 bg-slate-950/80 backdrop-blur-md border-t border-slate-900 shrink-0 z-20">
-                            <button onClick={() => { setCurrentTime(0); setStrokePhase(0); }} className="p-5 bg-slate-900 hover:bg-slate-800 transition-colors rounded-3xl"><Icon name="RotateCcw" className="text-slate-500" /></button>
-                            <button onClick={toggleStart} className={`w-24 h-24 rounded-full flex items-center justify-center shadow-2xl transition-all ${isRunning ? 'bg-white text-slate-900' : 'bg-blue-600 text-white'}`}>
-                                {isRunning ? <Icon name="Pause" size={40} fill="currentColor" /> : <Icon name="Play" size={40} fill="currentColor" className="ml-1.5" />}
+                        <footer className="p-4 md:p-8 pb-10 md:pb-12 flex justify-center items-center gap-8 md:gap-16 bg-slate-950/80 backdrop-blur-md border-t border-slate-900 shrink-0 z-20">
+                            <button onClick={() => { setCurrentTime(0); setStrokePhase(0); }} className="p-4 md:p-5 bg-slate-900 hover:bg-slate-800 transition-colors rounded-3xl shadow-lg"><Icon name="RotateCcw" className="text-slate-500" /></button>
+                            <button onClick={toggleStart} className={`w-20 h-20 md:w-24 md:h-24 rounded-full flex items-center justify-center shadow-2xl transition-all ${isRunning ? 'bg-white text-slate-900' : 'bg-blue-600 text-white'}`}>
+                                {isRunning ? <Icon name="Pause" size={36} fill="currentColor" /> : <Icon name="Play" size={36} fill="currentColor" className="ml-1" />}
                             </button>
-                            <button onClick={() => setShowSettings(true)} className="p-5 bg-slate-900 hover:bg-slate-800 transition-colors rounded-3xl"><Icon name="Clock" className="text-slate-500" /></button>
+                            <button onClick={() => setShowSettings(true)} className="p-4 md:p-5 bg-slate-900 hover:bg-slate-800 transition-colors rounded-3xl shadow-lg"><Icon name="Clock" className="text-slate-500" /></button>
                         </footer>
                     )}
 
-                    <a href="https://ko-fi.com/G2G41N6HQ1" target="_blank" className="fixed bottom-6 right-6 z-50 bg-slate-900/90 border border-slate-800 p-3.5 rounded-full shadow-2xl hover:scale-110 transition-transform flex items-center justify-center" title="Buy me a Coffee">
-                        <Icon name="Coffee" size={20} className="text-slate-400" />
+                    {/* Ko-fi Floating Button - Moved higher to avoid overlapping Footer */}
+                    <a href="https://ko-fi.com/G2G41N6HQ1" target="_blank" className="fixed bottom-32 right-4 z-50 bg-slate-900/90 border border-slate-800 p-3 rounded-full shadow-2xl hover:scale-110 transition-transform flex items-center justify-center" title="Buy me a Coffee">
+                        <Icon name="Coffee" size={18} className="text-slate-400" />
                     </a>
                 </div>
             );
