@@ -1,17 +1,11 @@
 {
-  "name": "RowPace",
-  "short_name": "RowPace",
-  "start_url": "index.html",
-  "display": "standalone",
-  "background_color": "#020617",
-  "theme_color": "#020617",
-  "orientation": "portrait",
   "icons": [
     {
       "src": "icon.png",
       "sizes": "512x512",
-      "type": "image/png",
-      "purpose": "any maskable"
+      "type": "image/png"
     }
-  ]
+  ],
+  "background_color": "#ffffff",
+  "display": "standalone"
 }
